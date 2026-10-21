@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: catalog-movies-api
+
+  config:
+    import:
+      - optional:file:.env[.properties]
+
+  main:
+    banner-mode: off
+
+  datasource:
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/postgres}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: catalog_movies
+
+  flyway:
+    locations:
+      - db/migration
+    enabled: true
+    default-schema: public
+
+server:
+  port: 8080

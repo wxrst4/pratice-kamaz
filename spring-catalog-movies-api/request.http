@@ -1,0 +1,148 @@
+@baseUrl = http://localhost:8080
+@genreId = 64d89ea5-f2cf-48f9-807a-7c56c22e3272
+
+### 1. Создать фильм — 200
+< {%
+    client.global.clear("catalogMovieId");
+%}
+POST {{baseUrl}}/api/v1/movies
+Content-Type: application/json
+
+{
+  "title": "Начало",
+  "director": "Кристофер Нолан",
+  "year": 2010,
+  "genreId": "{{genreId}}",
+  "rating": 8.8
+}
+
+> {%
+    client.test("Фильм создан", function () {
+        client.assert(response.status === 200, "Ожидается 200; проверьте genreId");
+        client.assert(!!response.body.id, "В ответе должен быть id");
+    });
+    if (response.status === 200 && response.body.id) {
+        client.global.set("catalogMovieId", response.body.id);
+    }
+%}
+
+### 2. Страница каталога — 200
+GET {{baseUrl}}/api/v1/movies?page=0&size=10
+
+> {%
+    client.test("Страница каталога", function () {
+        client.assert(response.status === 200 && Array.isArray(response.body), "Ожидается массив фильмов");
+    });
+%}
+
+### 3. Изменить рейтинг — 200
+PATCH {{baseUrl}}/api/v1/movies/{{catalogMovieId}}/rating?rating=9.2
+
+> {%
+    client.test("Рейтинг изменён", function () {
+        client.assert(response.status === 200 && response.body.rating === 9.2, "Ожидается рейтинг 9.2");
+    });
+%}
+
+### 4. Поиск по части названия без учёта регистра — 200
+GET {{baseUrl}}/api/v1/movies/search?query=нАЧа
+
+> {%
+    client.test("Поиск по названию", function () {
+        client.assert(response.status === 200, "Ожидается 200");
+        client.assert(response.body.some(movie => movie.id === client.global.get("catalogMovieId")), "Созданный фильм не найден");
+    });
+%}
+
+### 5. Поиск по части имени режиссёра без учёта регистра — 200
+GET {{baseUrl}}/api/v1/movies/search?query=нОЛан
+
+> {%
+    client.test("Поиск по режиссёру", function () {
+        client.assert(response.status === 200, "Ожидается 200");
+        client.assert(response.body.some(movie => movie.id === client.global.get("catalogMovieId")), "Созданный фильм не найден");
+    });
+%}
+
+### 6. Фильмы выбранного жанра — 200
+GET {{baseUrl}}/api/v1/movies/genre/{{genreId}}
+
+> {%
+    client.test("Поиск по жанру", function () {
+        client.assert(response.status === 200, "Ожидается 200");
+        client.assert(response.body.some(movie => movie.id === client.global.get("catalogMovieId")), "Созданный фильм не найден");
+    });
+%}
+
+### 7. Топ-5 по рейтингу — 200
+GET {{baseUrl}}/api/v1/movies/top5-by-rating
+
+> {%
+    client.test("Топ-5", function () {
+        client.assert(response.status === 200 && Array.isArray(response.body), "Ожидается массив");
+        client.assert(response.body.length <= 5, "В ответе больше пяти фильмов");
+    });
+%}
+
+### 8. Средний рейтинг по жанрам — 200
+GET {{baseUrl}}/api/v1/movies/avg-rating-by-genre
+
+> {%
+    client.test("Статистика по жанрам", function () {
+        client.assert(response.status === 200 && Array.isArray(response.body), "Ожидается массив статистики");
+    });
+%}
+
+### 9. Отсутствует обязательный rating — 400
+PATCH {{baseUrl}}/api/v1/movies/{{catalogMovieId}}/rating
+
+> {%
+    client.test("Отсутствует rating", function () {
+        client.assert(response.status === 400 && response.body.status === 400, "Ожидается 400");
+    });
+%}
+
+### 10. Рейтинг вне диапазона 0–10 — 400
+PATCH {{baseUrl}}/api/v1/movies/{{catalogMovieId}}/rating?rating=11
+
+> {%
+    client.test("Недопустимый рейтинг", function () {
+        client.assert(response.status === 400, "Ожидается 400");
+    });
+%}
+
+### 11. Пустой поисковый запрос — 400
+GET {{baseUrl}}/api/v1/movies/search?query=
+
+> {%
+    client.test("Пустой поиск", function () {
+        client.assert(response.status === 400, "Ожидается 400");
+    });
+%}
+
+### 12. Неподдерживаемый HTTP-метод — 405
+PUT {{baseUrl}}/api/v1/movies
+
+> {%
+    client.test("Метод не поддерживается", function () {
+        client.assert(response.status === 405, "Ожидается 405");
+    });
+%}
+
+### 13. Удалить созданный фильм — 204
+DELETE {{baseUrl}}/api/v1/movies/{{catalogMovieId}}
+
+> {%
+    client.test("Фильм удалён", function () {
+        client.assert(response.status === 204, "Ожидается 204");
+    });
+%}
+
+### 14. Изменить рейтинг уже удалённого фильма — 404
+PATCH {{baseUrl}}/api/v1/movies/{{catalogMovieId}}/rating?rating=8
+
+> {%
+    client.test("Удалённый фильм не найден", function () {
+        client.assert(response.status === 404, "Ожидается 404");
+    });
+%}
